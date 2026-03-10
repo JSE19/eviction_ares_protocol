@@ -7,7 +7,7 @@ interface IProposal {
         APPROVED,
         QUEUED,
         EXECUTED,
-        CANCELLED    
+        CANCELLED
     }
 
     enum actionType {
@@ -16,16 +16,15 @@ interface IProposal {
         UPGRADE
     }
 
-    struct  Action {
+    struct Action {
         actionType actionType;
         address token;
         address target;
         uint256 amount;
         bytes data;
-            
     }
 
-    struct Proposal{
+    struct Proposal {
         uint256 id;
         address proposer;
         Action action;
@@ -36,7 +35,14 @@ interface IProposal {
         bytes32 descriptionHash;
     }
 
-    event ProposalCreated(address indexed proposer, uint256 indexed proposalId, actionType actionType, address target, uint256 amount, bytes32 descriptionHash);
+    event ProposalCreated(
+        address indexed proposer,
+        uint256 indexed proposalId,
+        actionType actionType,
+        address target,
+        uint256 amount,
+        bytes32 descriptionHash
+    );
 
     event ProposalApproved(address indexed signer, uint256 indexed proposalId, uint256 newApprovalCount);
 
@@ -44,7 +50,7 @@ interface IProposal {
 
     event ProposalExecuted(uint256 indexed proposalId);
 
-    event ProposalCancelled( uint256 indexed proposalId, address indexed canceledBy, string reason);
+    event ProposalCancelled(uint256 indexed proposalId, address indexed canceledBy, string reason);
 
     error ProposalNotFound(uint256 proposalId);
     error AlreadyApproved();
@@ -60,7 +66,6 @@ interface IProposal {
     error NotTimeLock();
     error ProposalExpired();
     error ProposalExcecuted();
-   
 
     //Function to create new proposal
     function createProposal(Action memory action, bytes32 descriptionHash) external returns (uint256);
@@ -75,6 +80,4 @@ interface IProposal {
     function cancelProp(uint256 proposalId, string memory reason) external;
 
     function getProps(uint256 proposalId) external view returns (Proposal memory);
-
-
 }
