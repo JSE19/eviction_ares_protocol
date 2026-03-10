@@ -10,6 +10,7 @@ contract Proposal is IProposal {
 
     address public authorizationAddress;
     address public timelockAddress;
+    address public guardianAddress;
     address public adminAddress;
 
 
@@ -36,17 +37,24 @@ contract Proposal is IProposal {
         _;
     }
 
-    constructor(uint256 _approvalThreshold, address _authorizationAddress, address _timelockAddress) {
+    constructor(uint256 _approvalThreshold, address _authorizationAddress,address _guardianAddress, address _timelockAddress) {
         require(_approvalThreshold > 0, ThresholdShouldBeGreaterThanZero());
 
-        require(_authorizationAddress != address(0) && _timelockAddress != address(0), AddressZero());
+        require(_authorizationAddress != address(0) && 
+        _guardianAddress != address(0) && _timelockAddress != address(0), AddressZero());
 
 
         approvalThreshold = _approvalThreshold;
         authorizationAddress = _authorizationAddress;
+        guardianAddress = _guardianAddress;
         timelockAddress = _timelockAddress;
         adminAddress = msg.sender;
         
+    }
+
+    function setGuardian(address _newGuardian) external onlyAdmin {
+        require(_newGuardian != address(0), AddressZero());
+        guardianAddress = _newGuardian;
     }
 
 
@@ -133,6 +141,17 @@ contract Proposal is IProposal {
         require(proposal.status == propStat.PENDING || proposal.status == propStat.APPROVED, StatusNotPending());
 
         require(msg.sender == proposal.proposer || msg.sender == adminAddress, NotAuthorizedProposer());
+
+        
+
+        bool isGuardian = msg.sender == guardianAddress;
+        bool isProposerCancellingEarly = (
+            msg.sender == proposal.proposer &&
+            (proposal.status == propStat.PENDING ||
+             proposal.status == propStat.APPROVED)
+        );
+
+        require(isGuardian || isProposerCancellingEarly, NotAuthorizedProposer());
 
         proposal.status = propStat.CANCELLED;
 
