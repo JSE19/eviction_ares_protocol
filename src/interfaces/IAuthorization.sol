@@ -9,11 +9,7 @@ interface IAuthorization {
         uint256 deadline;
     }
 
-    event ApprovalVerified(
-        address indexed signer,
-        uint256 indexed proposalId,
-        uint256 nonce 
-    );
+    event ApprovalVerified(address indexed signer, uint256 indexed proposalId, uint256 nonce);
 
     event SignerAdded(address indexed signer);
 
@@ -34,17 +30,18 @@ interface IAuthorization {
     error AlreadyASigner();
     error NotASigner();
 
-    function verifyAndApprove(uint256 proposalId, bytes32 actionHash,uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;
+    function verifyAndApprove(uint256 proposalId, bytes32 actionHash, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external;
 
     function addSigner(address signer) external;
 
-    function removeSigner(address signer) external; 
+    function removeSigner(address signer) external;
 
     function isSigner(address signer) external view returns (bool);
 
     function getNonce(address signer) external view returns (uint256);
-    
-    //Returns the EIP-712 domain separator for this contract.
-    ///         Useful for off-chain signature construction and debugging.
+
+    // Returns the EIP-712 domain separator for this contract.
+    // Useful for off-chain signature construction and debugging.
     function domainSeparator() external view returns (bytes32);
 }

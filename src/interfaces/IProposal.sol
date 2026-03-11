@@ -73,7 +73,7 @@ interface IProposal {
     error AddressZero();
     error NotTimeLock();
     error ProposalExpired();
-    
+
     error ProposalExcecuted();
 
     //Function to create new proposal
@@ -94,4 +94,8 @@ interface IProposal {
     function getProps(
         uint256 proposalId
     ) external view returns (Proposal memory);
+
+    function proposalSnapshotBlock(
+        uint256 proposalId
+    ) external view returns (uint256);
 }

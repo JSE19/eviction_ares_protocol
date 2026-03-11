@@ -32,7 +32,7 @@ interface ITimeLock {
     error OperationExpired(bytes32 operationId);
     error OperationAlreadyCancelled(bytes32 operationId);
     error OperationAlreadyDone(bytes32 operationId);
-    
+
     error NotAuthorized();
     error DelayTooLongOrShort();
     error ZeroGracePeriod();
@@ -47,4 +47,6 @@ interface ITimeLock {
     function cancel(bytes32 operationId) external;
 
     function getOperation(bytes32 operationId) external view returns (QueuedOp memory);
+
+    function getOperationStatus(bytes32 operationId) external view returns (OperationStatus);
 }

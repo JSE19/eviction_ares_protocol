@@ -15,6 +15,8 @@ contract Proposal is IProposal {
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public approvals;
 
+    mapping(uint256 => uint256) public proposalSnapshotBlock;
+
     modifier onlyAdmin() {
         require(msg.sender == adminAddress, NotAdmin());
         _;
@@ -60,8 +62,12 @@ contract Proposal is IProposal {
         guardianAddress = _newGuardian;
     }
 
-    function createProposal(Action calldata action, bytes32 descriptionHash) external override returns (uint256) {
+    function createProposal(Action calldata action, bytes32 descriptionHash) external override returns (uint256 proposalId) {
         _validateAction(action);
+
+        // unchecked {
+        //     proposalId = ++_p
+        // }
 
         proposalCount += 1;
         proposals[proposalCount] = Proposal({
@@ -74,6 +80,8 @@ contract Proposal is IProposal {
             queuedAt: 0,
             descriptionHash: descriptionHash
         });
+
+        proposalSnapshotBlock[proposalId] = block.number > 0 ? block.number - 1 : 0;
 
         emit ProposalCreated(
             msg.sender, proposalCount, action.actionType, action.target, action.amount, descriptionHash
