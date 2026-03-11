@@ -33,14 +33,25 @@ contract TimeLockEngine is ITimeLock {
         _;
     }
     modifier onlyGuardianOrProposalManager() {
-        if (msg.sender != guardianAddress && msg.sender != proposalContractAddress) {
+        if (
+            msg.sender != guardianAddress &&
+            msg.sender != proposalContractAddress
+        ) {
             revert NotAuthorized();
-            _;
         }
+        _;
     }
 
-    constructor(uint256 _minDelay, uint256 _gracePeriod, address _proposalContractAddress, address _guardianAddress) {
-        require(_minDelay >= MIN_DELAY && _minDelay <= MAX_DELAY, DelayTooLongOrShort());
+    constructor(
+        uint256 _minDelay,
+        uint256 _gracePeriod,
+        address _proposalContractAddress,
+        address _guardianAddress
+    ) {
+        require(
+            _minDelay >= MIN_DELAY && _minDelay <= MAX_DELAY,
+            DelayTooLongOrShort()
+        );
 
         require(_gracePeriod > 0, ZeroGracePeriod());
 
@@ -56,17 +67,17 @@ contract TimeLockEngine is ITimeLock {
         windowStart = block.timestamp;
     }
 
-    function schedule(uint256 proposalId, IProposal.Action calldata action)
-        external
-        override
-        onlyProposalContract
-        returns (bytes32)
-    {
+    function schedule(
+        uint256 proposalId,
+        IProposal.Action calldata action
+    ) external override onlyProposalContract returns (bytes32) {
         uint256 nonce = nonces[proposalId] + 1;
 
         bytes32 actionHash = keccak256(abi.encode(action));
 
-        bytes32 operationId = keccak256(abi.encode(proposalId, actionHash, nonce));
+        bytes32 operationId = keccak256(
+            abi.encode(proposalId, actionHash, nonce)
+        );
 
         uint256 executionTime = block.timestamp + minDelay;
         uint256 expiryTime = executionTime + gracePeriod;
@@ -80,58 +91,78 @@ contract TimeLockEngine is ITimeLock {
             nonce: nonce
         });
 
-        emit OperationScheduled(operationId, proposalId, executionTime, expiryTime);
+        emit OperationScheduled(
+            operationId,
+            proposalId,
+            executionTime,
+            expiryTime
+        );
 
         return operationId;
     }
 
-    function cancel(bytes32 operationId) external override onlyGuardianOrProposalManager {
+    function cancel(
+        bytes32 operationId
+    ) external override onlyGuardianOrProposalManager {
         QueuedOp storage op = queue[operationId];
-        require(op.status != OperationStatus.UNSET, OperationNotReady(operationId));
-        require(op.status != OperationStatus.CANCELLED, OperationAlreadyCancelled(operationId));
-        require(op.status != OperationStatus.DONE, OperationAlreadyDone(operationId));
+        require(
+            op.status != OperationStatus.UNSET,
+            OperationNotReady(operationId)
+        );
+        require(
+            op.status != OperationStatus.CANCELLED,
+            OperationAlreadyCancelled(operationId)
+        );
+        require(
+            op.status != OperationStatus.DONE,
+            OperationAlreadyDone(operationId)
+        );
 
         op.status = OperationStatus.CANCELLED;
-        emit OperationCancelled(operationId, op.proposalId,msg.sender);
+
+        emit OperationCancelled(operationId, op.proposalId, msg.sender);
     }
 
-    function getOperation(bytes32 operationId) external view override returns (QueuedOp memory) {
-        QueuedOp memory op = queue[operationId];
-        if (op.status == OperationStatus.UNSET) {
-            revert OperationNotFound(operationId);
-        }
-        return op;
-    }
-
-    function execute(bytes32 operationId, IProposal.Action calldata action) external override onlyGuardianOrProposalManager {
+    function execute(
+        bytes32 operationId,
+        IProposal.Action calldata action
+    ) external override onlyGuardianOrProposalManager {
         QueuedOp storage op = queue[operationId];
 
-        require(op.status != OperationStatus.UNSET, OperationNotReady(operationId));
-        require(op.status != OperationStatus.CANCELLED, OperationAlreadyCancelled(operationId));
-        require(op.status != OperationStatus.DONE, OperationAlreadyDone(operationId));
+        require(
+            op.status != OperationStatus.UNSET,
+            OperationNotReady(operationId)
+        );
+        require(
+            op.status != OperationStatus.CANCELLED,
+            OperationAlreadyCancelled(operationId)
+        );
+        require(
+            op.status != OperationStatus.DONE,
+            OperationAlreadyDone(operationId)
+        );
 
-        require(block.timestamp >= op.executionTime, OperationNotReady(operationId));
+        require(
+            block.timestamp >= op.executionTime,
+            OperationNotReady(operationId)
+        );
 
-        require(block.timestamp <= op.expiryTime, OperationExpired(operationId));
+        require(
+            block.timestamp <= op.expiryTime,
+            OperationExpired(operationId)
+        );
 
-        require(keccak256(abi.encode(action)) == op.actionHash, InvalidAction());
+        require(
+            keccak256(abi.encode(action)) == op.actionHash,
+            InvalidAction()
+        );
 
-        
         // Mark as done before execution to prevent reentrancy
         op.status = OperationStatus.DONE;
 
-        // Execute the action
-        if (action.actionType == IProposal.actionType.TRANSFER && action.token == address(0)) {
-            _checkAndUpdateSpendingLimit(action.amount);
-        } else if (action.actionType == IProposal.actionType.CALL) {
-            _executeCall(action);
-        } else {
-            revert InvalidAction();
-        }
+        _executeAction(action);
 
         emit OperationExecuted(operationId, op.proposalId);
-
-        _executeAction(action);
     }
 
     function _executeAction(IProposal.Action calldata action) internal {
@@ -148,36 +179,46 @@ contract TimeLockEngine is ITimeLock {
 
     function _executeTransfer(IProposal.Action calldata action) internal {
         if (action.token == address(0)) {
-            
+            _checkAndUpdateSpendingLimit(action.amount);
             (bool ok, ) = action.target.call{value: action.amount}("");
             require(ok, "TimelockEngine: ETH transfer failed");
         } else {
-           
             (bool ok, bytes memory ret) = action.token.call(
-                abi.encodeWithSignature("transfer(address,uint256)", action.target, action.amount)
+                abi.encodeWithSignature(
+                    "transfer(address,uint256)",
+                    action.target,
+                    action.amount
+                )
             );
-            require(ok && (ret.length == 0 || abi.decode(ret, (bool))),
-                "TimelockEngine: ERC20 transfer failed");
+            require(
+                ok && (ret.length == 0 || abi.decode(ret, (bool))),
+                "TimelockEngine: ERC20 transfer failed"
+            );
         }
     }
 
     function _executeUpgrade(IProposal.Action calldata action) internal {
-        
         (bool ok, bytes memory returnData) = action.target.call(action.data);
         if (!ok) {
             if (returnData.length > 0) {
-                assembly { revert(add(32, returnData), mload(returnData)) }
+                assembly {
+                    revert(add(32, returnData), mload(returnData))
+                }
             }
             revert("TimelockEngine: upgrade failed");
         }
     }
 
     function _executeCall(IProposal.Action calldata action) internal {
-        (bool ok, bytes memory returnData) = action.target.call{value: action.amount}(action.data);
+        (bool ok, bytes memory returnData) = action.target.call{
+            value: action.amount
+        }(action.data);
         if (!ok) {
             // Bubble up the revert reason
             if (returnData.length > 0) {
-                assembly { revert(add(32, returnData), mload(returnData)) }
+                assembly {
+                    revert(add(32, returnData), mload(returnData))
+                }
             }
             revert("TimelockEngine: call failed");
         }
@@ -186,8 +227,8 @@ contract TimeLockEngine is ITimeLock {
     function _checkAndUpdateSpendingLimit(uint256 amount) internal {
         // Reset window if it has elapsed
         if (block.timestamp >= windowStart + spendingWindow) {
-            windowStart         = block.timestamp;
-            ethSpentThisWindow  = 0;
+            windowStart = block.timestamp;
+            ethSpentThisWindow = 0;
         }
 
         uint256 newTotal = ethSpentThisWindow + amount;
@@ -196,5 +237,14 @@ contract TimeLockEngine is ITimeLock {
         }
 
         ethSpentThisWindow = newTotal;
+    }
+
+    function getOperation(
+        bytes32 operationId
+    ) external view override returns (QueuedOp memory) {
+        if (queue[operationId].status == OperationStatus.UNSET) {
+            revert OperationNotFound(operationId);
+        }
+        return queue[operationId];
     }
 }

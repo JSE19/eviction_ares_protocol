@@ -44,13 +44,21 @@ interface IProposal {
         bytes32 descriptionHash
     );
 
-    event ProposalApproved(address indexed signer, uint256 indexed proposalId, uint256 newApprovalCount);
+    event ProposalApproved(
+        address indexed signer,
+        uint256 indexed proposalId,
+        uint256 newApprovalCount
+    );
 
     event ProposalReadyToQueue(uint256 indexed proposalId);
 
     event ProposalExecuted(uint256 indexed proposalId);
 
-    event ProposalCancelled(uint256 indexed proposalId, address indexed canceledBy, string reason);
+    event ProposalCancelled(
+        uint256 indexed proposalId,
+        address indexed canceledBy,
+        string reason
+    );
 
     error ProposalNotFound(uint256 proposalId);
     error AlreadyApproved();
@@ -65,10 +73,14 @@ interface IProposal {
     error AddressZero();
     error NotTimeLock();
     error ProposalExpired();
+    
     error ProposalExcecuted();
 
     //Function to create new proposal
-    function createProposal(Action memory action, bytes32 descriptionHash) external returns (uint256);
+    function createProposal(
+        Action memory action,
+        bytes32 descriptionHash
+    ) external returns (uint256);
 
     //Function to approve a proposal
     function approveProp(uint256 proposalId, address signer) external;
@@ -79,5 +91,7 @@ interface IProposal {
 
     function cancelProp(uint256 proposalId, string memory reason) external;
 
-    function getProps(uint256 proposalId) external view returns (Proposal memory);
+    function getProps(
+        uint256 proposalId
+    ) external view returns (Proposal memory);
 }
