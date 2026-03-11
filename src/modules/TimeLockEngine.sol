@@ -192,9 +192,7 @@ contract TimeLockEngine is ITimeLock {
         return queue[operationId];
     }
 
-    function getOperationStatus(
-        bytes32 operationId
-    ) external view override returns (OperationStatus) {
+    function getOperationStatus(bytes32 operationId) external view override returns (OperationStatus) {
         return queue[operationId].status;
     }
 }

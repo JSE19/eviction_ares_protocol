@@ -68,52 +68,41 @@ contract Main {
         admin = msg.sender;
     }
 
-    function propose(
-        IProposal.Action calldata action,
-        bytes32                          descriptionHash
-    ) external payable returns (uint256 proposalId) {
-
-        
-        if (msg.value < PROPOSAL_DEPOSIT)
+    function propose(IProposal.Action calldata action, bytes32 descriptionHash)
+        external
+        payable
+        returns (uint256 proposalId)
+    {
+        if (msg.value < PROPOSAL_DEPOSIT) {
             revert InsufficientDeposit(msg.value, PROPOSAL_DEPOSIT);
+        }
 
-      
         proposalId = proposal.createProposal(action, descriptionHash);
 
-        
-        proposalDepositor[proposalId]      = msg.sender;
-        proposalDepositAmount[proposalId]  = msg.value;
+        proposalDepositor[proposalId] = msg.sender;
+        proposalDepositAmount[proposalId] = msg.value;
 
         emit Proposed(proposalId, msg.sender);
     }
 
-    function queue(
-        uint256                          proposalId,
-        IProposal.Action calldata action
-    ) external {
+    function queue(uint256 proposalId, IProposal.Action calldata action) external {
         uint256 snapshotBlock = proposal.proposalSnapshotBlock(proposalId);
-        if (snapshotBlock >= block.number)
+        if (snapshotBlock >= block.number) {
             revert SameBlockProposal(proposalId);
+        }
 
-        
         proposal.queueProp(proposalId);
 
         bytes32 operationId = timeLock.schedule(proposalId, action);
 
-     
         proposalOperationId[proposalId] = operationId;
 
         emit Queued(proposalId, operationId);
     }
 
-    function execute(
-        uint256                          proposalId,
-        IProposal.Action calldata action
-    ) external {
-
+    function execute(uint256 proposalId, IProposal.Action calldata action) external {
         bytes32 operationId = proposalOperationId[proposalId];
 
-       
         timeLock.execute(operationId, action);
 
         // ── Refund proposer deposit on success ─────────────────
@@ -122,68 +111,58 @@ contract Main {
         emit Executed(proposalId);
     }
 
-    function cancel(
-        uint256        proposalId,
-        string calldata reason
-    ) external {
-
-        bool isGuardian  = (msg.sender == guardian);
-        bool isProposer  = (msg.sender == proposalDepositor[proposalId]);
+    function cancel(uint256 proposalId, string calldata reason) external {
+        bool isGuardian = (msg.sender == guardian);
+        bool isProposer = (msg.sender == proposalDepositor[proposalId]);
 
         require(isGuardian || isProposer, "TreasuryCore: not authorised to cancel");
 
-        
         proposal.cancelProp(proposalId, reason);
 
-        
         bytes32 operationId = proposalOperationId[proposalId];
         if (operationId != bytes32(0)) {
             // Only cancel if still PENDING in the timelock
-            ITimeLock.OperationStatus status =
-                timeLock.getOperationStatus(operationId);
+            ITimeLock.OperationStatus status = timeLock.getOperationStatus(operationId);
 
             if (status == ITimeLock.OperationStatus.PENDING) {
                 timeLock.cancel(operationId);
             }
         }
 
-       
         if (isGuardian && !isProposer) {
-            
             _slashDeposit(proposalId);
             emit Cancelled(proposalId, msg.sender, true);
         } else {
-            
             _refundDeposit(proposalId);
             emit Cancelled(proposalId, msg.sender, false);
         }
-
     }
 
     function _refundDeposit(uint256 proposalId) internal {
         address depositor = proposalDepositor[proposalId];
-        uint256 amount    = proposalDepositAmount[proposalId];
+        uint256 amount = proposalDepositAmount[proposalId];
 
         if (depositor == address(0) || amount == 0) return;
 
         // Clear before transfer (CEI)
         proposalDepositAmount[proposalId] = 0;
 
-        (bool ok, ) = depositor.call{value: amount}("");
+        (bool ok,) = depositor.call{value: amount}("");
         if (!ok) revert DepositRefundFailed(proposalId);
 
         emit DepositRefunded(proposalId, depositor, amount);
     }
+
     function _slashDeposit(uint256 proposalId) internal {
         address depositor = proposalDepositor[proposalId];
-        uint256 amount    = proposalDepositAmount[proposalId];
+        uint256 amount = proposalDepositAmount[proposalId];
 
         if (depositor == address(0) || amount == 0) return;
 
         // Clear before transfer (CEI)
         proposalDepositAmount[proposalId] = 0;
 
-        (bool ok, ) = SLASH_RECIPIENT.call{value: amount}("");
+        (bool ok,) = SLASH_RECIPIENT.call{value: amount}("");
         require(ok, "TreasuryCore: slash transfer failed");
 
         emit DepositSlashed(proposalId, depositor, amount);

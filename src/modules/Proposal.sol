@@ -15,6 +15,8 @@ contract Proposal is IProposal {
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public approvals;
 
+    mapping(address => bool) public authorisedProposers;
+
     mapping(uint256 => uint256) public proposalSnapshotBlock;
 
     modifier onlyAdmin() {
@@ -55,6 +57,7 @@ contract Proposal is IProposal {
         guardianAddress = _guardianAddress;
         timelockAddress = _timelockAddress;
         adminAddress = msg.sender;
+        authorisedProposers[msg.sender] = true;
     }
 
     function setGuardian(address _newGuardian) external onlyAdmin {
@@ -62,7 +65,11 @@ contract Proposal is IProposal {
         guardianAddress = _newGuardian;
     }
 
-    function createProposal(Action calldata action, bytes32 descriptionHash) external override returns (uint256 proposalId) {
+    function createProposal(Action calldata action, bytes32 descriptionHash)
+        external
+        override
+        returns (uint256 proposalId)
+    {
         _validateAction(action);
 
         // unchecked {
@@ -188,5 +195,10 @@ contract Proposal is IProposal {
 
             if (action.token != address(0)) revert InvalidAction();
         }
+    }
+
+    function setAuthorisedProposer(address proposer, bool status) external onlyAdmin {
+        require(proposer != address(0), "ProposalManager: zero address");
+        authorisedProposers[proposer] = status;
     }
 }
