@@ -88,7 +88,7 @@ contract Proposal is IProposal {
             descriptionHash: descriptionHash
         });
 
-        proposalSnapshotBlock[proposalId] = block.number > 0 ? block.number - 1 : 0;
+        proposalSnapshotBlock[proposalCount] = block.number > 0 ? block.number - 1 : 0;
 
         emit ProposalCreated(
             msg.sender, proposalCount, action.actionType, action.target, action.amount, descriptionHash
@@ -201,4 +201,10 @@ contract Proposal is IProposal {
         require(proposer != address(0), "ProposalManager: zero address");
         authorisedProposers[proposer] = status;
     }
+
+//     function setAuthorizationAddress(address _auth) external {
+//     require(msg.sender == admin, NotAdmin());
+//     require(authorizationAddress == address(1), "already set");
+//     authorizationAddress = _auth;
+// }
 }

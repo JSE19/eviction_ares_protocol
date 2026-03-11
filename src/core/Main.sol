@@ -36,6 +36,7 @@ contract Main {
     error NotGuardian(address caller);
     error NotAdmin(address caller);
     error NoDepositOnRecord(uint256 proposalId);
+    error AddressZero();
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert NotAdmin(msg.sender);
@@ -105,7 +106,7 @@ contract Main {
 
         timeLock.execute(operationId, action);
 
-        // ── Refund proposer deposit on success ─────────────────
+        // Refund proposer deposit on success
         _refundDeposit(proposalId);
 
         emit Executed(proposalId);
@@ -138,6 +139,23 @@ contract Main {
         }
     }
 
+    function createRewardRound(bytes32 _root, address _token, uint256 _totalAmount)
+        external
+        onlyAdmin
+        returns (uint256 roundId)
+    {
+        roundId = rewardDistributor.createRound(_root, _token, _totalAmount);
+    }
+
+    function updateRewardRoot(uint256 _roundId, bytes32 _newRoot) external onlyAdmin {
+        rewardDistributor.updateRoot(_roundId, _newRoot);
+    }
+
+    function setGuardian(address _newGuardian) external onlyAdmin {
+        require(_newGuardian != address(0), AddressZero());
+        guardian = _newGuardian;
+    }
+
     function _refundDeposit(uint256 proposalId) internal {
         address depositor = proposalDepositor[proposalId];
         uint256 amount = proposalDepositAmount[proposalId];
@@ -167,4 +185,6 @@ contract Main {
 
         emit DepositSlashed(proposalId, depositor, amount);
     }
+
+    receive() external payable {}
 }

@@ -143,12 +143,19 @@ contract ARESTest is Test {
         // Deploy all modules
         vm.startPrank(admin);
 
+        authLayer = new Authorization(address(1), signers);
+
         proposalManager = new Proposal(2, address(1), address(2), guardian);
+
         timelockEngine = new TimeLockEngine(DELAY, GRACE, address(proposalManager), guardian);
+
+
+        
         authLayer = new Authorization(address(proposalManager), signers);
 
         // Redeploy proposalManager with real addresses
         proposalManager = new Proposal(2, address(authLayer), address(timelockEngine), guardian);
+
         authLayer = new Authorization(address(proposalManager), signers);
 
         distributor = new RewardDistributor();
@@ -160,6 +167,8 @@ contract ARESTest is Test {
         proposalManager.setAuthorisedProposer(address(treasury), true);
         proposalManager.setAuthorisedProposer(admin, true);
 
+        token.mint(address(timelockEngine), 100 ether);
+
         vm.stopPrank();
     }
 
@@ -168,9 +177,12 @@ contract ARESTest is Test {
     // ─────────────────────────────────────────────────────────────────────────
 
     // Build a simple ETH transfer action
-    function _action(address to, uint256 amt) internal pure returns (IProposal.Action memory) {
+    function _action(address to, uint256 amt) internal view returns (IProposal.Action memory) {
         return IProposal.Action({
-            actionType: IProposal.actionType.TRANSFER, token: address(0), target: to, amount: amt, data: ""
+            actionType: IProposal.actionType.TRANSFER, token: address(token), 
+            target: to, 
+            amount: amt, 
+            data: ""
         });
     }
 
@@ -210,9 +222,11 @@ contract ARESTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         (uint8 v1, bytes32 r1, bytes32 s1) = _sign(signer1Pk, proposalId, ah, authLayer.getNonce(signer1), deadline);
+        vm.prank(address(treasury));
         authLayer.verifyAndApproveFor(signer1, proposalId, ah, deadline, v1, r1, s1);
 
         (uint8 v2, bytes32 r2, bytes32 s2) = _sign(signer2Pk, proposalId, ah, authLayer.getNonce(signer2), deadline);
+        vm.prank(address(treasury));
         authLayer.verifyAndApproveFor(signer2, proposalId, ah, deadline, v2, r2, s2);
 
         vm.roll(block.number + 1); // advance one block (flash-loan check)
@@ -328,9 +342,11 @@ contract ARESTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = _sign(signer1Pk, proposalId, ah, nonce, deadline);
 
         // First use — valid
+        vm.prank(address(treasury));
         authLayer.verifyAndApproveFor(signer1, proposalId, ah, deadline, v, r, s);
 
         // Replay the same (v, r, s) — nonce has advanced, digest is wrong
+        vm.prank(address(treasury));
         vm.expectRevert();
         authLayer.verifyAndApproveFor(signer1, proposalId, ah, deadline, v, r, s);
     }
@@ -349,9 +365,7 @@ contract ARESTest is Test {
         ITimeLock.QueuedOp memory op = timelockEngine.getOperation(operationId);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ITimeLock.OperationNotReady.selector, operationId, op.executionTime, block.timestamp
-            )
+            abi.encodeWithSelector(ITimeLock.OperationNotReady.selector, operationId, op.executionTime, block.timestamp)
         );
         treasury.execute(proposalId, action);
     }
